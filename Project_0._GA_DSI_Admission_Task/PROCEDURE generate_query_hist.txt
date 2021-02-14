@@ -1,0 +1,91 @@
+-- This procedure generates a query that can be used to draw a histogram
+
+CREATE OR REPLACE PROCEDURE generate_query_hist (
+   p_table_name  IN VARCHAR2, 
+   p_column_name IN VARCHAR2,
+   p_end_value   IN NUMBER,   
+   p_bin_width   IN NUMBER) 
+AS
+   CURSOR case_cur IS
+   SELECT  LPAD(' ', 18) || 'WHEN ' || p_column_name || ' BETWEEN '  || 
+          (LEVEL - 1) * p_bin_width  || ' AND ' ||  
+          (LEVEL  * p_bin_width  - 1) || ' THEN  '  || '''' || 
+          LPAD(LEVEL, 3, '0') || '.' || (LEVEL - 1) * p_bin_width  || ' - ' ||  
+          (LEVEL  * p_bin_width  - 1) ||  ''''   AS  when_line
+   FROM dual
+   CONNECT BY LEVEL < p_end_value / p_bin_width + 1;
+BEGIN
+   dbms_output.put_line('SELECT SUBSTR(bkt, INSTR(bkt, ''.'') + 1 ) AS buckets,');
+   dbms_output.put_line(LPAD(' ', 7) || 'ROUND((COUNT(success)/COUNT(*)) * 100) AS success_rate,');
+   dbms_output.put_line(LPAD(' ', 7) || 'COUNT(success) AS successful_projects,');
+   dbms_output.put_line(LPAD(' ', 7) || 'COUNT(failure) AS failed_projects,');
+   dbms_output.put_line(LPAD(' ', 7) || 'COUNT(*) AS num_projects');
+   
+   dbms_output.put_line(LPAD(' ', 2) || 'FROM (SELECT CASE');
+  
+   FOR rec IN case_cur
+   LOOP
+      dbms_output.put_line(rec.when_line);  
+   END LOOP;
+  
+   dbms_output.put_line(LPAD(' ', 18) || 'ELSE ' || '''' || '99999.Over ' || p_end_value || '''');
+   dbms_output.put_line(LPAD(' ', 15) || 'END AS bkt,');
+   
+   dbms_output.put_line(LPAD(' ', 15) || 'CASE');
+   dbms_output.put_line(LPAD(' ', 18) || 'WHEN status = ''successful'' THEN 1');
+   dbms_output.put_line(LPAD(' ', 15) || 'END AS success,');
+   
+   dbms_output.put_line(LPAD(' ', 15) || 'CASE');
+   dbms_output.put_line(LPAD(' ', 18) || 'WHEN status = ''failed'' THEN 1');
+   dbms_output.put_line(LPAD(' ', 15) || 'END AS failure');
+   
+   dbms_output.put_line(LPAD(' ', 10) || 'FROM ' || p_table_name || ')');
+   dbms_output.put_line(' GROUP BY bkt');
+   dbms_output.put_line(' ORDER BY bkt;');
+END;
+/
+
+
+Results:
+----------------
+
+exec generate_query_hist('dsi_kickstarterscrape_ds_sf', 'goal', 20000, 1000)
+
+SELECT SUBSTR(bkt, INSTR(bkt, '.') + 1 ) AS buckets,
+       ROUND((COUNT(success)/COUNT(*)) * 100) AS success_rate,
+       COUNT(success) AS successful_projects,
+       COUNT(failure) AS failed_projects,
+       COUNT(*) AS num_projects
+  FROM (SELECT CASE
+                  WHEN goal BETWEEN 0 AND 999 THEN  '001.0 - 999'
+                  WHEN goal BETWEEN 1000 AND 1999 THEN  '002.1000 - 1999'
+                  WHEN goal BETWEEN 2000 AND 2999 THEN  '003.2000 - 2999'
+                  WHEN goal BETWEEN 3000 AND 3999 THEN  '004.3000 - 3999'
+                  WHEN goal BETWEEN 4000 AND 4999 THEN  '005.4000 - 4999'
+                  WHEN goal BETWEEN 5000 AND 5999 THEN  '006.5000 - 5999'
+                  WHEN goal BETWEEN 6000 AND 6999 THEN  '007.6000 - 6999'
+                  WHEN goal BETWEEN 7000 AND 7999 THEN  '008.7000 - 7999'
+                  WHEN goal BETWEEN 8000 AND 8999 THEN  '009.8000 - 8999'
+                  WHEN goal BETWEEN 9000 AND 9999 THEN  '010.9000 - 9999'
+                  WHEN goal BETWEEN 10000 AND 10999 THEN  '011.10000 - 10999'
+                  WHEN goal BETWEEN 11000 AND 11999 THEN  '012.11000 - 11999'
+                  WHEN goal BETWEEN 12000 AND 12999 THEN  '013.12000 - 12999'
+                  WHEN goal BETWEEN 13000 AND 13999 THEN  '014.13000 - 13999'
+                  WHEN goal BETWEEN 14000 AND 14999 THEN  '015.14000 - 14999'
+                  WHEN goal BETWEEN 15000 AND 15999 THEN  '016.15000 - 15999'
+                  WHEN goal BETWEEN 16000 AND 16999 THEN  '017.16000 - 16999'
+                  WHEN goal BETWEEN 17000 AND 17999 THEN  '018.17000 - 17999'
+                  WHEN goal BETWEEN 18000 AND 18999 THEN  '019.18000 - 18999'
+                  WHEN goal BETWEEN 19000 AND 19999 THEN  '020.19000 - 19999'
+                  ELSE '99999.Over 20000'
+               END AS bkt,
+               CASE
+                  WHEN status = 'successful' THEN 1
+               END AS success,
+               CASE
+                  WHEN status = 'failed' THEN 1
+               END AS failure
+          FROM dsi_kickstarterscrape_ds_sf)
+ GROUP BY bkt
+ ORDER BY bkt;
+ 
